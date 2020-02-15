@@ -8,7 +8,6 @@ from sklearn.model_selection import train_test_split
 import warnings 
 warnings.filterwarnings("ignore")
 
-
 import os
 import pandas as pd 
 import numpy as np
@@ -22,6 +21,7 @@ sys.path.append('../utils/')
 from data_loader import data_loader
 
 model_name = str(sys.argv[1])
+model_file_name = str(sys.argv[2])
 
 def data_loader_all(func, path, train, nrows, **kwargs):
     '''
@@ -72,7 +72,7 @@ train_path = '../../../datadrive/plant/train/'
 test_path = '../../../datadrive/plant/test'
 label = pd.read_csv('../../../datadrive/plant/train_label.csv')
 
-EVENT_TIME = 0
+EVENT_TIME = 1
 
 ##################### Train #######################
 
@@ -119,53 +119,43 @@ X_train, X_valid = train_test_split(train, test_size = .25, random_state=42)
 y_train, y_valid = train_test_split(train_label, test_size = .25, random_state=42)
 del train
 
-if model_name == 'lgb':
 
-    X_train = X_train.to_numpy()
-    X_valid = X_valid.to_numpy()
-    y_train = y_train.to_numpy()
-    y_valid = y_valid.to_numpy()
+X_train = X_train.to_numpy()
+X_valid = X_valid.to_numpy()
+y_train = y_train.to_numpy()
+y_valid = y_valid.to_numpy()
 
 
-    import lightgbm as lgb
-    train_data = lgb.Dataset(X_train, label=y_train) #, feature_name=X_train.columns)
-    valid_data = lgb.Dataset(X_valid, label=y_valid) #, feature_name=X_valid.columns)
+import lightgbm as lgb
+train_data = lgb.Dataset(X_train, label=y_train) #, feature_name=X_train.columns)
+valid_data = lgb.Dataset(X_valid, label=y_valid) #, feature_name=X_valid.columns)
 
-    param = {
-        'objective': 'multiclass',
-        'num_class': 198,
-        'boosting':'gbdt',  
-        'num_leaves':32,
-        'max_depth':20,
-        'min_data_in_leaf':20,
-        'metric':'multi_logloss', 
-        'learning_rate' : 0.01,
-        'num_threads' : 12,
-		'verbose' : -1,
-		'bagging_freq' : 1,
-		'bagging_fraction' : 0.5,
-		'feature_fraction' : 0.5,
-    }
-    evals_result={} 
-    num_round = 2000
-    lgbst = lgb.train(params=param, 
-                    train_set=train_data, 
-                    num_boost_round=num_round, 
-                    valid_sets=[valid_data], 
-                    evals_result=evals_result, 
-                    early_stopping_rounds=1000, 
-                    verbose_eval=10)
-    lgbst.save_model('model_lgb.txt', num_iteration=lgbst.best_iteration)
-
-elif model_name == 'rf':
-    
-    from sklearn.ensemble import RandomForestClassifier
-    import pickle
-
-    clf = RandomForestClassifier(n_estimators=500, n_jobs=1)
-    clf.fit(X_train, y_train)
-
-    pickle.dump(clf, open('model_rf.pickle', 'wb'))
+param = {
+    'objective': 'multiclass',
+    'num_class': 198,
+    'boosting':'gbdt',  
+    'num_leaves':32,
+    'max_depth':20,
+    'min_data_in_leaf':20,
+    'metric':'multi_logloss', 
+    'learning_rate' : 0.01,
+    'num_threads' : 11,
+    'verbose' : -1,
+    'bagging_freq' : 1,
+    'bagging_fraction' : 0.5,
+    'feature_fraction' : 0.5,
+}
+evals_result={} 
+num_round = 3000
+lgbst = lgb.train(params=param, 
+                train_set=train_data, 
+                num_boost_round=num_round, 
+                valid_sets=[valid_data], 
+                evals_result=evals_result, 
+                early_stopping_rounds=3000, 
+                verbose_eval=10,
+                init_model = 'model_lgb_9.txt',)
+lgbst.save_model(model_file_name+'.txt', num_iteration=lgbst.best_iteration)
 
 
 

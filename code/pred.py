@@ -8,7 +8,7 @@ from functools import partial
 import datetime
 
 import sys
-sys.path.append('source/')
+sys.path.append('../utils/')
 from data_loader_v2 import data_loader_v2
 import lightgbm as lgb
 
