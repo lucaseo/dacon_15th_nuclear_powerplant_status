@@ -8,7 +8,6 @@ from sklearn.model_selection import train_test_split
 import warnings 
 warnings.filterwarnings("ignore")
 
-
 import os
 import pandas as pd 
 import numpy as np
@@ -21,7 +20,6 @@ import sys
 sys.path.append('../utils/')
 from data_loader import data_loader
 
-model_name = str(sys.argv[1])
 
 def data_loader_all(func, path, train, nrows, **kwargs):
     '''
@@ -60,40 +58,23 @@ def data_loader_all(func, path, train, nrows, **kwargs):
         pool.join()
     
     # 데이터 병합하기 
-    combined_df = pd.concat(df_list, ignore_index=True)
-    
+    combined_df = pd.concat(df_list, ignore_index=True)    
     return combined_df
-
-
-
 
 
 train_path = '../../../datadrive/plant/train/'
 test_path = '../../../datadrive/plant/test'
 label = pd.read_csv('../../../datadrive/plant/train_label.csv')
-
 EVENT_TIME = 0
 
-##################### Train #######################
-
-
 ## Load Train data
-
-print('Loading train data ...')
 train = data_loader_all(data_loader, path=train_path, train = True, nrows = 600, normal = 999, event_time = EVENT_TIME, lookup_table = label)
 
 
-
-
 ## Preprocess
-print('Start preprocessing train data ...')
-
 #1
 train = train[train['label']!=999].reset_index(drop=True)
-
 train_label = train.label
-train_id = train.id
-train_time = train.time
 train = train.drop(['id','time','label'], axis=1)
 
 #2
@@ -102,13 +83,12 @@ with open('filter_col.txt', 'r') as filehandle:
 list_ = [col.replace('\n', '') for col in list_]
 train= train[list_]
 
-
 # 3
 for col in train.columns:
     if train[col].dtype != 'float64':
         train[col] = pd.to_numeric(train[col], errors='coerce')
 
-#4
+# 4
 train = train.fillna(value=0, axis=1)
 
 
@@ -117,55 +97,38 @@ train = train.fillna(value=0, axis=1)
 print('Start training ...')
 X_train, X_valid = train_test_split(train, test_size = .25, random_state=42)
 y_train, y_valid = train_test_split(train_label, test_size = .25, random_state=42)
-del train
-
-if model_name == 'lgb':
-
-    X_train = X_train.to_numpy()
-    X_valid = X_valid.to_numpy()
-    y_train = y_train.to_numpy()
-    y_valid = y_valid.to_numpy()
+X_train = X_train.to_numpy()
+X_valid = X_valid.to_numpy()
+y_train = y_train.to_numpy()
+y_valid = y_valid.to_numpy()
 
 
-    import lightgbm as lgb
-    train_data = lgb.Dataset(X_train, label=y_train) #, feature_name=X_train.columns)
-    valid_data = lgb.Dataset(X_valid, label=y_valid) #, feature_name=X_valid.columns)
-
-    param = {
-        'objective': 'multiclass',
-        'num_class': 198,
-        'boosting':'gbdt',  
-        'num_leaves':32,
-        'max_depth':20,
-        'min_data_in_leaf':20,
-        'metric':'multi_logloss', 
-        'learning_rate' : 0.01,
-        'num_threads' : 12,
-		'verbose' : -1,
-		'bagging_freq' : 1,
-		'bagging_fraction' : 0.5,
-		'feature_fraction' : 0.5,
-    }
-    evals_result={} 
-    num_round = 2000
-    lgbst = lgb.train(params=param, 
-                    train_set=train_data, 
-                    num_boost_round=num_round, 
-                    valid_sets=[valid_data], 
-                    evals_result=evals_result, 
-                    early_stopping_rounds=1000, 
-                    verbose_eval=10)
-    lgbst.save_model('model_lgb.txt', num_iteration=lgbst.best_iteration)
-
-elif model_name == 'rf':
-    
-    from sklearn.ensemble import RandomForestClassifier
-    import pickle
-
-    clf = RandomForestClassifier(n_estimators=500, n_jobs=1)
-    clf.fit(X_train, y_train)
-
-    pickle.dump(clf, open('model_rf.pickle', 'wb'))
-
-
-
+## Train LightGBM
+import lightgbm as lgb
+train_data = lgb.Dataset(X_train, label=y_train) #, feature_name=X_train.columns)
+valid_data = lgb.Dataset(X_valid, label=y_valid) #, feature_name=X_valid.columns)
+param = {
+    'objective': 'multiclass',
+    'num_class': 198,
+    'boosting':'gbdt',  
+    'num_leaves':32,
+    'max_depth':20,
+    'min_data_in_leaf':20,
+    'metric':'multi_logloss', 
+    'learning_rate' : 0.01,
+    'num_threads' : 12,
+    'verbose' : -1,
+    'bagging_freq' : 1,
+    'bagging_fraction' : 0.5,
+    'feature_fraction' : 0.5,
+}
+evals_result={} 
+num_round = 2000
+lgbst = lgb.train(params=param, 
+                train_set=train_data, 
+                num_boost_round=num_round, 
+                valid_sets=[valid_data], 
+                evals_result=evals_result, 
+                early_stopping_rounds=1000, 
+                verbose_eval=10)
+lgbst.save_model('model_lgb.txt', num_iteration=lgbst.best_iteration)
